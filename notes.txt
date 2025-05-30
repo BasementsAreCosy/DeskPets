@@ -1,0 +1,4 @@
+Images in form:
+animal_facingGridx_facingGridy_active/idle_frameNum
+e.g
+bear_0_2_a_0
