@@ -15,29 +15,18 @@ from PIL import Image, ImageDraw
 
 
 
-class DesktopPet(QMainWindow):
+class Window(QMainWindow):
     def __init__(self):
         super().__init__()
-        self.resolution = 128
-        self.hunger = 100
-        self.happiness = 100
-        self.energy = 100
-        self.position = QPoint(100, 100)
-        self.targetPosition = None
-        self.frame = 0
-        self.sleeping = False
-        
         self.initUI()
 
-        self.spriteName = 'bear'
-        self.petImage = None  # Initialize petImage
-        self.idleImage = QPixmap(f'{self.spriteName}x{self.resolution}/{self.spriteName}_1_2_a_0.png')
-        self.setPetImage()  # Set initial image
-
-        self.bedImage = QPixmap('sprites/bed.png')
+        self.backgroundSprites = [Bed()]
+        self.sprites = []
+        for i in range(10):
+            self.sprites.append(Pet())
 
         self.updateTimer = QTimer(self)
-        self.updateTimer.timeout.connect(self.updatePet)
+        self.updateTimer.timeout.connect(self.updateScr)
         self.updateTimer.start(200)
 
         #self.autosaveTimer = QTimer(self)
@@ -64,23 +53,72 @@ class DesktopPet(QMainWindow):
         self.setGeometry(0, 0, win32api.GetSystemMetrics(0), win32api.GetSystemMetrics(1))
         self.show()
     
-    def updatePet(self):
+    def updateScr(self):
+        for sprite in self.sprites:
+            sprite.update()
+        self.update()
+    
+    def paintEvent(self, event):
+        painter = QPainter(self)
+
+        for sprite in self.backgroundSprites:
+            if sprite.image:
+                painter.drawPixmap(sprite.x, sprite.y, sprite.image)
+
+        for sprite in self.sprites:
+            if sprite.image:
+                painter.drawPixmap(sprite.x, sprite.y, sprite.image)
+
+class Sprite:
+    def __init__(self, pos=(0, 0)):
+        self.image = None
+        self.position = QPoint(pos[0], pos[1])
+    
+    def update(self):
+        pass
+
+    @property
+    def x(self):
+        return self.position.x()
+    
+    @property
+    def y(self):
+        return self.position.y()
+
+class Pet(Sprite):
+    def __init__(self):
+        super().__init__((random.randint(100, win32api.GetSystemMetrics(0)-100), random.randint(100, win32api.GetSystemMetrics(1)-100)))
+        self.resolution = 128
+        self.hunger = 100
+        self.happiness = 100
+        self.energy = 100
+        self.targetPosition = None
+        self.frame = 0
+        self.sleeping = False
+        self.lastDirection = (2, 2)
+
+        self.spriteName = 'bear'
+        self.idleImage = QPixmap(f'{self.spriteName}x{self.resolution}/{self.spriteName}_1_2_i_0.png')
+        self.setImage()  # Set initial image
+
+        self.bedImage = QPixmap('sprites/bed.png')
+    
+    def update(self):
         self.frame += 1
 
         if not self.sleeping:
-            self.energy -= 2
+            self.energy -= 0.5
             self.hunger -= 0.01
             self.happiness -= 0.01
 
-        self.setPetImage()
         if self.energy <= 0 and self.targetPosition == None:
             self.sleeping = True
             self.targetPosition = QPoint(100, win32api.GetSystemMetrics(1) - 144)
-            self.idleImage = QPixmap(f'{self.spriteName}x{self.resolution}/{self.spriteName}_1_2_a_0.png')
+            self.idleImage = QPixmap(f'{self.spriteName}x{self.resolution}/{self.spriteName}_1_1_s_0.png')
         elif not self.isMoving and not self.sleeping:
-            if random.random() < 0.1:
+            if random.random() < 0.02:
                 self.targetPosition = QPoint(random.randint(100, win32api.GetSystemMetrics(0) - 100), random.randint(100, win32api.GetSystemMetrics(1) - 100))
-        else:
+        elif self.targetPosition != None:
             # Move towards target position
             dx = self.targetPosition.x() - self.position.x()
             dy = self.targetPosition.y() - self.position.y()
@@ -88,33 +126,32 @@ class DesktopPet(QMainWindow):
 
             if distance < 200 and not self.sleeping:
                 self.targetPosition = None
+            elif distance < 20 and self.sleeping:
+                self.position = self.targetPosition
+                self.targetPosition = None
             else:
-                self.position.setX(self.position.x() + max(min(dx * 0.05, self.resolution/2), -self.resolution/2))
-                self.position.setY(self.position.y() + max(min(dy * 0.05, self.resolution/2), -self.resolution/2))
-                self.update()  # Update the window to redraw the pet at new position
+                self.position.setX(self.position.x() + utils.clamp(utils.invClamp(dx*0.05, 1), self.resolution/2))
+                self.position.setY(self.position.y() + utils.clamp(utils.invClamp(dy*0.05, 1), self.resolution/2))
         
-        if self.sleeping:
-            self.energy += 0.01
+        if self.targetPosition == None:
+            self.idleImage = QPixmap(f'{self.spriteName}x{self.resolution}/{self.spriteName}_{self.lastDirection[0]}_{self.lastDirection[1]}_i_0.png')
+        
+        if self.sleeping and self.targetPosition == None:
+            self.idleImage = QPixmap(f'{self.spriteName}x{self.resolution}/{self.spriteName}_1_1_s_{"0" if self.frame%10 != 0 else "1"}.png')
+            self.energy += 1
             if self.energy >= 100:
                 self.sleeping = False
                 self.energy = 100
+                self.targetPosition = QPoint(random.randint(100, win32api.GetSystemMetrics(0) - 100), random.randint(100, win32api.GetSystemMetrics(1) - 100))
+        
+        self.setImage()
     
-    def setPetImage(self):
+    def setImage(self):
         if self.directionMatrix == None:
-            self.petImage = self.idleImage
+            self.image = self.idleImage
         else:
-            self.petImage = QPixmap(f'{self.spriteName}x{self.resolution}/{self.spriteName}_{self.directionMatrix[0]}_{self.directionMatrix[1]}_a_{self.frame%2}.png')
-        self.update()
+            self.image = QPixmap(f'{self.spriteName}x{self.resolution}/{self.spriteName}_{self.directionMatrix[0]}_{self.directionMatrix[1]}_a_{self.frame%2}.png')
     
-    def paintEvent(self, event):
-        painter = QPainter(self)
-
-        if self.bedImage:
-            painter.drawPixmap(100, win32api.GetSystemMetrics(1) - 144, self.bedImage)
-            
-        if self.petImage:
-            painter.drawPixmap(self.position.x(), self.position.y(), self.petImage)
-
     @property
     def directionVector(self):
         return None if self.targetPosition == None else (self.targetPosition.x()-self.position.x(), self.targetPosition.y()-self.position.y())
@@ -144,6 +181,7 @@ class DesktopPet(QMainWindow):
             7: (2, 0)   # top-right
         }
         
+        self.lastDirection = direction_map[direction]
         return direction_map[direction]
     
     @property
@@ -153,12 +191,16 @@ class DesktopPet(QMainWindow):
         return self.position != self.targetPosition
 
 
+class Bed(Sprite):
+    def __init__(self):
+        super().__init__((100, win32api.GetSystemMetrics(1)-144))
+        self.image = QPixmap('sprites/bed.png')
 
 
 
 def main():
     app = QApplication(sys.argv)
-    pet = DesktopPet()
+    window = Window()
     sys.exit(app.exec_())
 
 if __name__ == '__main__':
