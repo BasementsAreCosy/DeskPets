@@ -20,10 +20,10 @@ class Window(QMainWindow):
         super().__init__()
         self.initUI()
 
-        self.backgroundSprites = [Bed()]
+
         self.sprites = []
-        for i in range(10):
-            self.sprites.append(Pet())
+        for i in range(1000):
+            self.sprites.append(Pet(resolution=random.randint(100, 150)))
 
         self.updateTimer = QTimer(self)
         self.updateTimer.timeout.connect(self.updateScr)
@@ -61,12 +61,9 @@ class Window(QMainWindow):
     def paintEvent(self, event):
         painter = QPainter(self)
 
-        for sprite in self.backgroundSprites:
-            if sprite.image:
-                painter.drawPixmap(sprite.x, sprite.y, sprite.image)
-
         for sprite in self.sprites:
             if sprite.image:
+                painter.drawPixmap(sprite.bed.x, sprite.bed.y, sprite.bed.image)
                 painter.drawPixmap(sprite.x, sprite.y, sprite.image)
     
     def mousePressEvent(self, event):
@@ -93,9 +90,10 @@ class Sprite:
         return self.position.y()
 
 class Pet(Sprite):
-    def __init__(self):
-        super().__init__((random.randint(100, win32api.GetSystemMetrics(0)-100), random.randint(100, win32api.GetSystemMetrics(1)-100)))
-        self.resolution = 128
+    def __init__(self, imageRes=32, resolution=128):
+        super().__init__((random.randint(0, win32api.GetSystemMetrics(0)-resolution), random.randint(0, win32api.GetSystemMetrics(1)-resolution)))
+        self.resolution = resolution
+        self.imageRes = imageRes
         self.hunger = 100
         self.happiness = 100
         self.energy = 100
@@ -104,28 +102,29 @@ class Pet(Sprite):
         self.sleeping = False
         self.lastDirection = (2, 2)
 
-        self.spriteName = 'bear'
-        self.idleImage = QPixmap(f'{self.spriteName}x{self.resolution}/{self.spriteName}_1_2_i_0.png')
-        self.setImage()  # Set initial image
+        self.bed = Bed()
 
-        self.bedImage = QPixmap('sprites/bed.png')
+        self.spriteName = 'bear'
+        self.idleImage = QPixmap(f'{self.spriteName}x{self.imageRes}/{self.spriteName}_1_2_i_0.png').scaled(self.resolution, self.resolution)
+        self.setImage()  # Set initial image
+        
         self.particles = []
     
     def update(self):
         self.frame += 1
 
         if not self.sleeping:
-            self.energy -= 0.5
+            self.energy -= 2
             self.hunger -= 0.01
             self.happiness -= 0.01
 
         if self.energy <= 0 and self.targetPosition == None:
             self.sleeping = True
-            self.targetPosition = QPoint(100, win32api.GetSystemMetrics(1) - 144)
-            self.idleImage = QPixmap(f'{self.spriteName}x{self.resolution}/{self.spriteName}_1_1_s_0.png')
+            self.targetPosition = QPoint(self.bed.position)
+            self.idleImage = QPixmap(f'{self.spriteName}x{self.imageRes}/{self.spriteName}_1_1_s_0.png').scaled(self.resolution, self.resolution)
         elif not self.isMoving and not self.sleeping:
             if random.random() < 0.02:
-                self.targetPosition = QPoint(random.randint(100, win32api.GetSystemMetrics(0) - 100), random.randint(100, win32api.GetSystemMetrics(1) - 100))
+                self.targetPosition = QPoint(random.randint(0, win32api.GetSystemMetrics(0) - self.resolution), random.randint(0, win32api.GetSystemMetrics(1) - self.resolution))
         elif self.targetPosition != None:
             # Move towards target position
             dx = self.targetPosition.x() - self.position.x()
@@ -138,19 +137,19 @@ class Pet(Sprite):
                 self.position = self.targetPosition
                 self.targetPosition = None
             else:
-                self.position.setX(self.position.x() + utils.clamp(utils.invClamp(dx*0.05, 1), self.resolution/2))
-                self.position.setY(self.position.y() + utils.clamp(utils.invClamp(dy*0.05, 1), self.resolution/2))
+                self.position.setX(round(self.position.x() + utils.clamp(utils.invClamp(dx*0.05, 3), self.resolution/2)))
+                self.position.setY(round(self.position.y() + utils.clamp(utils.invClamp(dy*0.05, 3), self.resolution/2)))
         
         if self.targetPosition == None:
-            self.idleImage = QPixmap(f'{self.spriteName}x{self.resolution}/{self.spriteName}_{self.lastDirection[0]}_{self.lastDirection[1]}_i_0.png')
+            self.idleImage = QPixmap(f'{self.spriteName}x{self.imageRes}/{self.spriteName}_{self.lastDirection[0]}_{self.lastDirection[1]}_i_0.png').scaled(self.resolution, self.resolution)
         
         if self.sleeping and self.targetPosition == None:
-            self.idleImage = QPixmap(f'{self.spriteName}x{self.resolution}/{self.spriteName}_1_1_s_{"0" if self.frame%10 != 0 else "1"}.png')
+            self.idleImage = QPixmap(f'{self.spriteName}x{self.imageRes}/{self.spriteName}_1_1_s_{"0" if self.frame%10 != 0 else "1"}.png').scaled(self.resolution, self.resolution)
             self.energy += 1
             if self.energy >= 100:
                 self.sleeping = False
                 self.energy = 100
-                self.targetPosition = QPoint(random.randint(100, win32api.GetSystemMetrics(0) - 100), random.randint(100, win32api.GetSystemMetrics(1) - 100))
+                self.targetPosition = QPoint(random.randint(0, win32api.GetSystemMetrics(0) - self.resolution), random.randint(0, win32api.GetSystemMetrics(1) - self.resolution))
         
         self.setImage()
     
@@ -158,7 +157,7 @@ class Pet(Sprite):
         if self.directionMatrix == None:
             self.image = self.idleImage
         else:
-            self.image = QPixmap(f'{self.spriteName}x{self.resolution}/{self.spriteName}_{self.directionMatrix[0]}_{self.directionMatrix[1]}_a_{self.frame%2}.png')
+            self.image = QPixmap(f'{self.spriteName}x{self.imageRes}/{self.spriteName}_{self.directionMatrix[0]}_{self.directionMatrix[1]}_a_{self.frame%2}.png').scaled(self.resolution, self.resolution)
     
     def setNewPos(self):
         newPos = self.newPos
@@ -214,7 +213,7 @@ class Pet(Sprite):
 
 class Bed(Sprite):
     def __init__(self):
-        super().__init__((100, win32api.GetSystemMetrics(1)-144))
+        super().__init__((random.randint(0, win32api.GetSystemMetrics(0)-128), win32api.GetSystemMetrics(1)-144))
         self.image = QPixmap('sprites/bed.png')
 
 
