@@ -3,6 +3,7 @@ import utils
 
 ##### Other Libs #####
 import sys
+import json
 import math
 import random
 from PyQt5.QtWidgets import QApplication, QMainWindow, QLabel
@@ -12,7 +13,7 @@ import win32gui
 import win32con
 import win32api
 from PIL import Image, ImageDraw
-
+from pathlib import Path
 
 
 class Window(QMainWindow):
@@ -20,10 +21,22 @@ class Window(QMainWindow):
         super().__init__()
         self.initUI()
 
+        if Path('petData.json').exists():
+            try:
+                with open('petData.json', 'r') as f:
+                    self.spriteData = dict(json.load(f))
+            except:
+                self.spriteData = {Pet(size=32)}
+        else:
+            with open('petData.json', 'w') as f:
+                json.dump({}, f)
+                self.spriteData = {Pet(size=32)}
 
         self.sprites = []
-        for i in range(1):
-            self.sprites.append(Pet(size=32))
+        for key in self.spriteData.keys():
+            self.sprites.append(Pet(size=self.spriteData[key]['size']))
+        
+        # todo: finish JSON pet saving
         
         self.mousePressed = False
         self.heldSprite = None
@@ -33,9 +46,9 @@ class Window(QMainWindow):
         self.updateTimer.timeout.connect(self.updateScr)
         self.updateTimer.start(200)
 
-        #self.autosaveTimer = QTimer(self)
-        #self.autosaveTimer.timeout.connect(self.save)
-        #self.autosaveTimer.start(60000)
+        self.autosaveTimer = QTimer(self)
+        self.autosaveTimer.timeout.connect(self.save)
+        self.autosaveTimer.start(60000)
     
     def initUI(self):
         self.setWindowFlags(
@@ -56,6 +69,10 @@ class Window(QMainWindow):
         # Set window size to be full screen
         self.setGeometry(0, 0, win32api.GetSystemMetrics(0), win32api.GetSystemMetrics(1))
         self.show()
+    
+    def save(self):
+        with open('petData', 'w+') as f:
+            f.write()
     
     def updateScr(self):
         for sprite in self.sprites:
