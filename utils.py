@@ -1,3 +1,5 @@
+from PyQt5.QtGui import QPixmap
+
 def roundToNearestBase(num, base):
     return round(num/base)*base
 
@@ -11,3 +13,6 @@ def clamp(num, bound):
 
 def invClamp(num, bound):
     return max(abs(num), bound) * sign(num)
+
+def scaleImage(imagePath, size):
+    return QPixmap(imagePath).scaled(round(size), round(size))
