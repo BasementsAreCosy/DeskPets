@@ -22,7 +22,7 @@ class Window(QMainWindow):
 
 
         self.sprites = []
-        for i in range(10):
+        for i in range(1000):
             self.sprites.append(Pet(resolution=random.randint(100, 150)))
 
         self.updateTimer = QTimer(self)
