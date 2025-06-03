@@ -80,12 +80,7 @@ class Window(QMainWindow):
                     sprite.bed.y <= event.y() <= sprite.bed.y + sprite.bed.size):
                         self.heldSprite = sprite.bed
                         self.heldSpriteOffset = (sprite.bed.x-event.x(), sprite.bed.y-event.y())
-                        break    
-                if (sprite.x <= event.x() <= sprite.x + sprite.size and 
-                    sprite.y <= event.y() <= sprite.y + sprite.size):
-                    self.heldSprite = sprite
-                    self.heldSpriteOffset = (sprite.x-event.x(), sprite.y-event.y())
-                    break
+                        break
         elif self.mousePressed:
             self.heldSprite.position.setX(round(event.x()+self.heldSpriteOffset[0]))
             self.heldSprite.position.setY(round(event.y()+self.heldSpriteOffset[1]))
@@ -94,11 +89,6 @@ class Window(QMainWindow):
         self.mousePressed = False
         self.heldSprite = None
         for sprite in self.sprites:
-            if hasattr(sprite, 'bed'):
-                if (sprite.bed.x <= event.x() <= sprite.bed.x + sprite.bed.size and 
-                sprite.bed.y <= event.y() <= sprite.bed.y + sprite.bed.size):
-                    sprite.bed.onClick()
-                    break    
             if (sprite.x <= event.x() <= sprite.x + sprite.size and 
                 sprite.y <= event.y() <= sprite.y + sprite.size):
                 sprite.onClick()
