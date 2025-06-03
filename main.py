@@ -68,10 +68,17 @@ class Window(QMainWindow):
         for sprite in self.sprites:
             if sprite.image:
                 painter.drawPixmap(sprite.x, sprite.y, sprite.image)
+    
+    def mousePressEvent(self, event):
+        for sprite in self.sprites:
+            if (sprite.x <= event.x() <= sprite.x + sprite.resolution and 
+                sprite.y <= event.y() <= sprite.y + sprite.resolution):
+                sprite.onClick()
+                break
 
 class Sprite:
-    def __init__(self, pos=(0, 0)):
-        self.image = None
+    def __init__(self, pos=(0, 0), image=None):
+        self.image = image
         self.position = QPoint(pos[0], pos[1])
     
     def update(self):
@@ -102,6 +109,7 @@ class Pet(Sprite):
         self.setImage()  # Set initial image
 
         self.bedImage = QPixmap('sprites/bed.png')
+        self.particles = []
     
     def update(self):
         self.frame += 1
@@ -152,6 +160,14 @@ class Pet(Sprite):
         else:
             self.image = QPixmap(f'{self.spriteName}x{self.resolution}/{self.spriteName}_{self.directionMatrix[0]}_{self.directionMatrix[1]}_a_{self.frame%2}.png')
     
+    def setNewPos(self):
+        newPos = self.newPos
+        self.targetPosition = QPoint(newPos[0], newPos[1])
+    
+    def onClick(self):
+        self.happiness = min(100, self.happiness + 20)
+
+
     @property
     def directionVector(self):
         return None if self.targetPosition == None else (self.targetPosition.x()-self.position.x(), self.targetPosition.y()-self.position.y())
@@ -189,12 +205,23 @@ class Pet(Sprite):
         if self.targetPosition == None:
             return False
         return self.position != self.targetPosition
+    
+    @property
+    def newPos(self):
+        return (random.randint(self.resolution, win32api.GetSystemMetrics(0) - self.resolution), random.randint(self.resolution, win32api.GetSystemMetrics(1) - self.resolution))
+
 
 
 class Bed(Sprite):
     def __init__(self):
         super().__init__((100, win32api.GetSystemMetrics(1)-144))
         self.image = QPixmap('sprites/bed.png')
+
+
+
+class Particle(Sprite):
+    def __init__(self, pos=(0, 0), image=None):
+        super().__init__(pos)
 
 
 
