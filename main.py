@@ -1,6 +1,6 @@
 ##### My Libs #####
-import utils
 import sprite
+import utils
 
 ##### Other Libs #####
 import uuid
@@ -44,7 +44,7 @@ class Window(QMainWindow):
             self.sprites.append(Pet())
             self.sprites.append(Pet())
             self.sprites.append(Pet())
-        
+
         self.mousePressed = False
         self.heldSprite = None
         self.heldSpriteOffset = (0, 0)
@@ -95,11 +95,10 @@ class Window(QMainWindow):
     def updateScr(self):
         self.frame += 1
         for sprite in self.sprites:
-            children = sprite.getChildren()
-            for child in children:
-                if self.frame%max(1, self.FPS//child.updatesPerSecond) == 0:
+            for child in sprite.children:
+                if self.frame%max(1, self.FPS//child.updateSpeed) == 0:
                     child.update()
-            if self.frame%(self.FPS//round(5+5*sprite.speed)) == 0:
+            if self.frame%max(1, self.FPS//round(5+5*sprite.updateSpeed)) == 0:
                 sprite.update()
         self.update()
     
@@ -107,8 +106,9 @@ class Window(QMainWindow):
         painter = QPainter(self)
 
         for sprite in self.sprites:
-            if sprite.image:
-                sprite.draw(painter)
+            for child in sprite.children: # todo: intro layers for foreground/background objs
+                child.draw(painter)
+            sprite.draw(painter)
     
     def mousePressEvent(self, event):
         self.mousePressed = True
@@ -116,13 +116,21 @@ class Window(QMainWindow):
     def mouseMoveEvent(self, event):
         if self.mousePressed and self.heldSprite == None:
             for sprite in self.sprites:
-                if hasattr(sprite, 'bed'):
-                    if (sprite.bed.x <= event.x() <= sprite.bed.x + sprite.bed.size and 
-                    sprite.bed.y <= event.y() <= sprite.bed.y + sprite.bed.size):
-                        self.heldSprite = sprite.bed
-                        sprite.bed.held = True
-                        self.heldSpriteOffset = (sprite.bed.x-event.x(), sprite.bed.y-event.y())
+                if sprite.holdable:
+                    if (sprite.x <= event.x() <= sprite.x + sprite.size and 
+                        sprite.y <= event.y() <= sprite.y + sprite.size):
+                        self.heldSprite = sprite
+                        sprite.held = True
+                        self.heldSpriteOffset = (sprite.x-event.x(), sprite.y-event.y())
                         break
+                for child in sprite.children:
+                    if child.holdable:
+                        if (child.x <= event.x() <= child.x + child.size and 
+                            child.y <= event.y() <= child.y + child.size):
+                            self.heldSprite = child
+                            child.held = True
+                            self.heldSpriteOffset = (child.x-event.x(), child.y-event.y())
+                            break
         elif self.mousePressed:
             self.heldSprite.position.setX(round(event.x()+self.heldSpriteOffset[0]))
             self.heldSprite.position.setY(round(event.y()+self.heldSpriteOffset[1]))
@@ -137,11 +145,17 @@ class Window(QMainWindow):
                 sprite.y <= event.y() <= sprite.y + sprite.size):
                 sprite.onClick()
                 break
+            for child in sprite.children:
+                if (child.x <= event.x() <= child.x + child.size and 
+                    child.y <= event.y() <= child.y + child.size):
+                    child.onClick()
+                    break
 
 class Pet(sprite.Sprite):
-    def __init__(self, ID=None, size=32, hunger=100, happiness=100, energy=100, offlineTime=0, imageRes=32):
+    def __init__(self, ID=None, pos=(0, 0), image=None, imageRes=32, size=32, hunger=100, happiness=100, energy=100, updatesPerSecond=60, offlineTime=0):
         self.size = size
-        super().__init__(self.newPos)
+        super().__init__(self.newPos, image, size, updatesPerSecond)
+
         if ID == None:
             self.ID = uuid.uuid4().hex
         else:
@@ -160,21 +174,19 @@ class Pet(sprite.Sprite):
         self.energy = max(0, energy-0.01*self.energyMultiplier*offlineTime*5)
 
         self.targetPosition = None
-        self.frame = 0
+        self.updatesSinceBoot = 0
         self.attemptingSleep = False
         self.sleeping = False
         self.lastDirection = (2, 2)
-        
-        self.bed = Bed()
 
         self.spriteName = 'bear'
         self.idleImage = utils.scaleImage(f'{self.spriteName}x{self.imageRes}/{self.spriteName}_1_2_i_0.png', self.size)
         self.setImage()  # Set initial image
-        
-        self.particles = []
+
+        self.children = [Bed()]
     
     def update(self):
-        self.frame += 1
+        self.updatesSinceBoot += 1
         if self.happiness != 0:
             self.size = min(128, self.size+self.growthMultiplier/432000)
 
@@ -183,15 +195,14 @@ class Pet(sprite.Sprite):
             self.hunger = max(0, self.hunger-0.01*self.hungerMultiplier)
             self.happiness = max(0, self.happiness-0.01*self.happinessMultiplier)
 
-        if self.energy <= 0 and self.targetPosition == None:
-            self.energy = 0
+        if self.energy == 0:
             self.attemptingSleep = True
             self.targetPosition = QPoint(self.bed.position)
             self.idleImage = utils.scaleImage(f'{self.spriteName}x{self.imageRes}/{self.spriteName}_1_1_s_0.png', self.size)
         elif not self.isMoving and not self.sleeping:
             if random.random() < 0.02:
                 self.setNewTarget()
-        elif self.targetPosition != None:
+        if self.targetPosition != None:
             # Move towards target position
             dx = self.targetPosition.x() - self.position.x()
             dy = self.targetPosition.y() - self.position.y()
@@ -200,7 +211,6 @@ class Pet(sprite.Sprite):
             if distance < 200 and not self.attemptingSleep:
                 self.targetPosition = None
             elif distance < 20 and self.attemptingSleep:
-                self.energy += 20
                 self.position = self.targetPosition
                 self.targetPosition = None
             else:
@@ -210,32 +220,29 @@ class Pet(sprite.Sprite):
         if self.targetPosition == None:
             self.idleImage = utils.scaleImage(f'{self.spriteName}x{self.imageRes}/{self.spriteName}_{self.lastDirection[0]}_{self.lastDirection[1]}_i_0.png', self.size)
         
-        if self.attemptingSleep and self.targetPosition == None and self.position == self.bed.position:
+        if self.attemptingSleep and self.position == self.bed.position:
             self.attemptingSleep = False
             self.sleeping = True
         
         if self.sleeping:
-            self.idleImage = utils.scaleImage(f'{self.spriteName}x{self.imageRes}/{self.spriteName}_1_1_s_{"0" if self.frame%10 != 0 else "1"}.png', self.size)
+            self.idleImage = utils.scaleImage(f'{self.spriteName}x{self.imageRes}/{self.spriteName}_1_1_s_{"0" if self.updatesSinceBoot%10 != 0 else "1"}.png', self.size)
             self.energy += 0.1
             if self.energy >= 100:
                 self.sleeping = False
                 self.energy = 100
                 self.setNewTarget()
         
-        for particle in self.particles:
-            if particle.dead:
-                self.particles.remove(particle)
+        for child in self.children:
+            if child.dead:
+                self.children.remove(child)
 
         self.setImage()
-    
-    def getChildren(self):
-        return list(self.particles) + list([self.bed])
     
     def setImage(self):
         if self.directionMatrix == None:
             self.image = self.idleImage
         else:
-            self.image = utils.scaleImage(f'{self.spriteName}x{self.imageRes}/{self.spriteName}_{self.directionMatrix[0]}_{self.directionMatrix[1]}_a_{self.frame%2}.png', self.size)
+            self.image = utils.scaleImage(f'{self.spriteName}x{self.imageRes}/{self.spriteName}_{self.directionMatrix[0]}_{self.directionMatrix[1]}_a_{self.updatesSinceBoot%2}.png', self.size)
 
     def setNewTarget(self):
         newPos = self.newPos
@@ -244,16 +251,12 @@ class Pet(sprite.Sprite):
     def onClick(self):
         self.setNewTarget()
         self.happiness = min(100, self.happiness + 20)
-        self.particles.append(Particle((self.x+self.size, self.y), f'sprites/heart_{random.randint(0, 3)}.png'))
-
+        self.children.append(Particle((self.x+self.size, self.y), f'sprites/heart_{random.randint(0, 3)}.png'))
+    
     def draw(self, painter):
         if self.image != None:
-            self.bed.draw(painter)
             painter.drawPixmap(self.x, self.y, self.image)
-            for particle in self.particles:
-                if not particle.dead:
-                    particle.draw(painter)
-
+    
     @property
     def directionVector(self):
         return None if self.targetPosition == None else (self.targetPosition.x()-self.position.x(), self.targetPosition.y()-self.position.y())
@@ -297,15 +300,19 @@ class Pet(sprite.Sprite):
         return (random.randint(0, win32api.GetSystemMetrics(0) - round(self.size)), random.randint(0, win32api.GetSystemMetrics(1) - round(self.size)))
 
     @property
-    def speed(self):
-        return (1-(self.size/128))
+    def updateSpeed(self):
+        return 1-(self.size/128)
     
+    @property
+    def bed(self):
+        for child in self.children:
+            if type(child) == Bed:
+                return child
 
 
 class Bed(sprite.Sprite):
     def __init__(self):
-        super().__init__((random.randint(0, win32api.GetSystemMetrics(0)-128), win32api.GetSystemMetrics(1)-144), 'sprites/bed.png', 128)
-        self.held = False
+        super().__init__(pos=(random.randint(0, win32api.GetSystemMetrics(0)-128), win32api.GetSystemMetrics(1)-144), image='sprites/bed.png', size=128, holdable=True, updatesPerSecond=60)
         self.speedByGravity = 0
 
     def update(self):
@@ -320,10 +327,9 @@ class Bed(sprite.Sprite):
     def y(self):
         return min(self.position.y(), win32api.GetSystemMetrics(1)-144)
 
-
 class Particle(sprite.Sprite):
     def __init__(self, pos=(0, 0), image=None):
-        super().__init__(pos, image)
+        super().__init__(pos=pos, image=image)
         self.waviness = random.randint(50, 100)
         self.speed = random.randint(2, 5)
         self.origin = QPoint(round(pos[0]), round(pos[1]))
@@ -338,6 +344,7 @@ class Particle(sprite.Sprite):
     @property
     def dead(self):
         return self.position.y() <= -32
+
 
 
 

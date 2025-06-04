@@ -29,6 +29,10 @@ class Sprite:
         return False
     
     @property
+    def updateSpeed(self):
+        return self.updatesPerSecond
+    
+    @property
     def x(self):
         return self.position.x()
     
