@@ -152,7 +152,7 @@ class Window(QMainWindow):
                     break
 
 class Pet(sprite.Sprite):
-    def __init__(self, ID=None, pos=(0, 0), image=None, imageRes=32, size=32, hunger=100, happiness=100, energy=100, updatesPerSecond=60, offlineTime=0):
+    def __init__(self, ID=None, pos=(0, 0), image=None, size=32, hunger=100, happiness=100, energy=100, updatesPerSecond=60, offlineTime=0):
         self.size = size
         super().__init__(self.newPos, image, size, updatesPerSecond)
 
@@ -160,8 +160,6 @@ class Pet(sprite.Sprite):
             self.ID = uuid.uuid4().hex
         else:
             self.ID = ID
-        
-        self.imageRes = imageRes
 
         self.growthMultiplier = 1
         self.hungerMultiplier = 1
@@ -180,7 +178,7 @@ class Pet(sprite.Sprite):
         self.lastDirection = (2, 2)
 
         self.spriteName = 'bear'
-        self.idleImage = utils.scaleImage(f'{self.spriteName}x{self.imageRes}/{self.spriteName}_1_2_i_0.png', self.size)
+        self.idleImage = utils.scaleImage(f'sprites/{self.spriteName}_1_2_i_0.png', self.size)
         self.setImage()  # Set initial image
 
         self.children = [Bed()]
@@ -198,7 +196,7 @@ class Pet(sprite.Sprite):
         if self.energy == 0:
             self.attemptingSleep = True
             self.targetPosition = QPoint(self.bed.position)
-            self.idleImage = utils.scaleImage(f'{self.spriteName}x{self.imageRes}/{self.spriteName}_1_1_s_0.png', self.size)
+            self.idleImage = utils.scaleImage(f'sprites/{self.spriteName}_1_1_s_0.png', self.size)
         elif not self.isMoving and not self.sleeping:
             if random.random() < 0.02:
                 self.setNewTarget()
@@ -218,14 +216,14 @@ class Pet(sprite.Sprite):
                 self.position.setY(round(self.position.y() + utils.clamp(utils.invClamp(dy*0.05, 3), self.size/2)))
         
         if self.targetPosition == None:
-            self.idleImage = utils.scaleImage(f'{self.spriteName}x{self.imageRes}/{self.spriteName}_{self.lastDirection[0]}_{self.lastDirection[1]}_i_0.png', self.size)
+            self.idleImage = utils.scaleImage(f'sprites/{self.spriteName}_{self.lastDirection[0]}_{self.lastDirection[1]}_i_0.png', self.size)
         
         if self.attemptingSleep and self.position == self.bed.position:
             self.attemptingSleep = False
             self.sleeping = True
         
         if self.sleeping:
-            self.idleImage = utils.scaleImage(f'{self.spriteName}x{self.imageRes}/{self.spriteName}_1_1_s_{"0" if self.updatesSinceBoot%10 != 0 else "1"}.png', self.size)
+            self.idleImage = utils.scaleImage(f'sprites/{self.spriteName}_1_1_s_{"0" if self.updatesSinceBoot%10 != 0 else "1"}.png', self.size)
             self.energy += 0.1
             if self.energy >= 100:
                 self.sleeping = False
@@ -242,7 +240,7 @@ class Pet(sprite.Sprite):
         if self.directionMatrix == None:
             self.image = self.idleImage
         else:
-            self.image = utils.scaleImage(f'{self.spriteName}x{self.imageRes}/{self.spriteName}_{self.directionMatrix[0]}_{self.directionMatrix[1]}_a_{self.updatesSinceBoot%2}.png', self.size)
+            self.image = utils.scaleImage(f'sprites/{self.spriteName}_{self.directionMatrix[0]}_{self.directionMatrix[1]}_a_{self.updatesSinceBoot%2}.png', self.size)
 
     def setNewTarget(self):
         newPos = self.newPos
