@@ -15,4 +15,6 @@ def invClamp(num, bound):
     return max(abs(num), bound) * sign(num)
 
 def scaleImage(imagePath, size):
-    return QPixmap(imagePath).scaled(round(size), round(size))
+    if imagePath:
+        return QPixmap(imagePath).scaled(round(size), round(size))
+    return None
