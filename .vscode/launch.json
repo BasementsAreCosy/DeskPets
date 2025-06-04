@@ -8,7 +8,7 @@
             "name": "Python Debugger: Main",
             "type": "debugpy",
             "request": "launch",
-            "program": "main.py",
+            "program": "DeskPets.py",
             "console": "integratedTerminal"
         },
         {
