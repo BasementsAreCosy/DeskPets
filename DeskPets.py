@@ -1,6 +1,3 @@
-import updater
-updater.run_updater()
-
 ##### My Libs #####
 import sprite
 import utils
