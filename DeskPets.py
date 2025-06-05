@@ -38,6 +38,8 @@ class Window(QMainWindow):
         if self.sprites == []:
             self.sprites.append(Pet())
 
+        self.sprites.append(Feeder())
+
         self.mousePressed = False
         self.heldSprite = None
         self.heldSpriteOffset = (0, 0)
@@ -76,12 +78,13 @@ class Window(QMainWindow):
         os.makedirs(self.getDataPath(), exist_ok=True)
         petDict = {}
         for pet in self.sprites:
-            petDict[pet.ID] = {}
-            petDict[pet.ID]['size'] = pet.size
-            petDict[pet.ID]['hunger'] = pet.hunger
-            petDict[pet.ID]['happiness'] = pet.happiness
-            petDict[pet.ID]['energy'] = pet.energy
-            petDict[pet.ID]['lastSave'] = time.time()
+            if type(pet) == Pet:
+                petDict[pet.ID] = {}
+                petDict[pet.ID]['size'] = pet.size
+                petDict[pet.ID]['hunger'] = pet.hunger
+                petDict[pet.ID]['happiness'] = pet.happiness
+                petDict[pet.ID]['energy'] = pet.energy
+                petDict[pet.ID]['lastSave'] = time.time()
         with open(os.path.join(self.getDataPath(), 'petData.json'), 'w') as f:
             jsonObj = json.dumps(petDict, indent=4)
             f.write(jsonObj)
@@ -151,7 +154,7 @@ class Window(QMainWindow):
 class Pet(sprite.Sprite):
     def __init__(self, ID=None, pos=(0, 0), image=None, size=32, hunger=100, happiness=100, energy=100, updatesPerSecond=60, offlineTime=0):
         self.size = size
-        super().__init__(self.newPos, image, size, updatesPerSecond)
+        super().__init__(pos=self.newPos, image=image, size=size, updatesPerSecond=updatesPerSecond, holdable=True)
 
         if ID == None:
             self.ID = uuid.uuid4().hex
@@ -342,7 +345,9 @@ class Particle(sprite.Sprite):
     def dead(self):
         return self.position.y() <= -32
 
-
+class Feeder(sprite.Sprite):
+    def __init__(self, pos=(0, win32api.GetSystemMetrics(1)-500), image='sprites/feeder.png', size=128, holdable=False, updatesPerSecond=60):
+        super().__init__(pos=pos, image=image, size=size, holdable=holdable, updatesPerSecond=updatesPerSecond)
 
 def main():
     app = QApplication(sys.argv)
