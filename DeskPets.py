@@ -5,6 +5,7 @@ import utils
 ##### Other Libs #####
 import uuid
 import time
+import os
 import sys
 import json
 import math
@@ -15,22 +16,18 @@ from PyQt5.QtGui import QPainter
 import win32gui
 import win32con
 import win32api
-from pathlib import Path
-
 
 class Window(QMainWindow):
     def __init__(self):
         super().__init__()
         self.initUI()
 
-        if Path('petData.json').exists():
-            try:
-                with open('petData.json', 'r') as f:
-                    spriteData = dict(json.load(f))
-            except:
-                pass
-        else:
-            with open('petData.json', 'w') as f:
+        try:
+            with open(os.path.join(self.getDataPath(), 'petData.json'), 'r') as f:
+                spriteData = dict(json.load(f))
+        except FileNotFoundError:
+            os.makedirs(self.getDataPath(), exist_ok=True)
+            with open(os.path.join(self.getDataPath(), 'petData.json'), 'w') as f:
                 json.dump({}, f)
                 spriteData = {}
 
@@ -39,10 +36,6 @@ class Window(QMainWindow):
             self.sprites.append(Pet(ID=key, size=spriteData[key]['size'], hunger=spriteData[key]['hunger'], happiness=spriteData[key]['happiness'], energy=spriteData[key]['energy'], offlineTime=time.time()-spriteData[key]['lastSave']))
         
         if self.sprites == []:
-            self.sprites.append(Pet())
-            self.sprites.append(Pet())
-            self.sprites.append(Pet())
-            self.sprites.append(Pet())
             self.sprites.append(Pet())
 
         self.mousePressed = False
@@ -80,6 +73,7 @@ class Window(QMainWindow):
         self.show()
     
     def save(self):
+        os.makedirs(self.getDataPath(), exist_ok=True)
         petDict = {}
         for pet in self.sprites:
             petDict[pet.ID] = {}
@@ -88,9 +82,12 @@ class Window(QMainWindow):
             petDict[pet.ID]['happiness'] = pet.happiness
             petDict[pet.ID]['energy'] = pet.energy
             petDict[pet.ID]['lastSave'] = time.time()
-        with open('petData.json', 'w') as f:
+        with open(os.path.join(self.getDataPath(), 'petData.json'), 'w') as f:
             jsonObj = json.dumps(petDict, indent=4)
             f.write(jsonObj)
+    
+    def getDataPath(self):
+        return os.path.join(os.environ['APPDATA'], 'DeskPets')
     
     def updateScr(self):
         self.frame += 1
