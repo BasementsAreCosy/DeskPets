@@ -36,7 +36,7 @@ def run_updater():
         print(f"New version available: {latest} (current: {LOCAL_VERSION})")
         installer_path = download_installer(latest)
         print("Running installer...")
-        subprocess.Popen([installer_path], shell=True)
+        subprocess.run([installer_path], shell=True)
         sys.exit()  # Quit app so installer can run
     else:
         print("App is up to date.")

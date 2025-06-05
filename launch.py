@@ -16,6 +16,9 @@ wait_for_explorer()
 
 # Run the updater
 subprocess.run(["updater.exe"])
+
+time.sleep(10)
+
 # Start the main app
 subprocess.Popen(["DeskPets.exe"], creationflags=subprocess.DETACHED_PROCESS)
 
