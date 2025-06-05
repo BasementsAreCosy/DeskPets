@@ -311,8 +311,10 @@ class Bed(sprite.Sprite):
         self.speedByGravity = 0
 
     def update(self):
-        if self.y == win32api.GetSystemMetrics(1)-144 or self.held:
+        if self.held:
             self.speedByGravity = 0
+        elif self.y == win32api.GetSystemMetrics(1)-144:
+            self.speedByGravity = -0.2*self.speedByGravity
         else:
             self.speedByGravity += 9.8/self.updatesPerSecond
         
