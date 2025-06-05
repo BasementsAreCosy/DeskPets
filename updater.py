@@ -1,9 +1,11 @@
 import requests, os, subprocess, sys
 from packaging import version
+from release import __version__ as LOCAL_VERSION
+
 
 GITHUB_USER = "BasementsAreCosy"
 REPO_NAME = "DeskPets"
-LOCAL_VERSION = "1.0.0"
+
 
 def get_latest_version():
     url = f"https://api.github.com/repos/{GITHUB_USER}/{REPO_NAME}/releases/latest"
