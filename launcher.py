@@ -7,7 +7,7 @@ GITHUB_USER = "BasementsAreCosy"
 REPO_NAME = "DeskPets"
 
 
-def get_latest_version():
+def getLatestVersion():
     url = f"https://api.github.com/repos/{GITHUB_USER}/{REPO_NAME}/releases/latest"
     try:
         r = requests.get(url)
@@ -17,7 +17,7 @@ def get_latest_version():
         print(f"Update check failed: {e}")
         return LOCAL_VERSION
 
-def download_installer(tag):
+def downloadInstaller(tag):
     filename = f"DeskPets_v{tag}_Installer.exe"
     url = f"https://github.com/{GITHUB_USER}/{REPO_NAME}/releases/download/v{tag}/{filename}"
     local_path = os.path.join(os.getenv("TEMP"), filename)
@@ -30,16 +30,29 @@ def download_installer(tag):
                 f.write(chunk)
     return local_path
 
-def run_updater():
-    latest = get_latest_version()
+def runUpdater(latest):
+    print(f"New version available: {latest} (current: {LOCAL_VERSION})")
+    installer_path = downloadInstaller(latest)
+    print("Running installer...")
+    subprocess.Popen([installer_path, "/VERYSILENT"])
+
+    # Relaunch the app
+    subprocess.Popen(["DeskPets.exe"])
+    sys.exit()
+
+def runLauncher():
+    latest = getLatestVersion()
     if version.parse(latest) > version.parse(LOCAL_VERSION):
-        print(f"New version available: {latest} (current: {LOCAL_VERSION})")
-        installer_path = download_installer(latest)
-        print("Running installer...")
-        subprocess.run([installer_path], shell=True)
-        sys.exit()  # Quit app so installer can run
+        runUpdater(latest)
     else:
         print("App is up to date.")
+        subprocess.Popen(["DeskPets.exe"])
 
 if __name__ == "__main__":
-    run_updater()
+    if getattr(sys, 'frozen', False):
+        os.chdir(os.path.dirname(sys.executable))
+    else:
+        os.chdir(os.path.dirname(os.path.abspath(__file__)))
+
+
+    runLauncher()
