@@ -1,5 +1,5 @@
 ##### My Libs #####
-import sprite
+import supportClasses
 import utils
 
 ##### Other Libs #####
@@ -12,7 +12,7 @@ import math
 import random
 from PyQt5.QtWidgets import QApplication, QMainWindow
 from PyQt5.QtCore import Qt, QTimer, QPoint
-from PyQt5.QtGui import QPainter
+from PyQt5.QtGui import QPainter, QImage, QColor
 import win32gui
 import win32con
 import win32api
@@ -151,7 +151,7 @@ class Window(QMainWindow):
                     child.onClick()
                     break
 
-class Pet(sprite.Sprite):
+class Pet(supportClasses.Sprite):
     def __init__(self, ID=None, pos=(0, 0), image=None, size=32, hunger=100, happiness=100, energy=100, updatesPerSecond=60, offlineTime=0):
         self.size = size
         super().__init__(pos=self.newPos, image=image, size=size, updatesPerSecond=updatesPerSecond, holdable=True)
@@ -308,7 +308,7 @@ class Pet(sprite.Sprite):
                 return child
 
 
-class Bed(sprite.Sprite):
+class Bed(supportClasses.Sprite):
     def __init__(self):
         super().__init__(pos=(random.randint(0, win32api.GetSystemMetrics(0)-128), win32api.GetSystemMetrics(1)-144), image='sprites/bed.png', size=128, holdable=True, updatesPerSecond=60)
         self.speedByGravity = 0
@@ -327,7 +327,7 @@ class Bed(sprite.Sprite):
     def y(self):
         return min(self.position.y(), win32api.GetSystemMetrics(1)-144)
 
-class Particle(sprite.Sprite):
+class Particle(supportClasses.Sprite):
     def __init__(self, pos=(0, 0), image=None):
         super().__init__(pos=pos, image=image)
         self.waviness = random.randint(50, 100)
@@ -345,9 +345,32 @@ class Particle(sprite.Sprite):
     def dead(self):
         return self.position.y() <= -32
 
-class Feeder(sprite.Sprite):
+class Feeder(supportClasses.Sprite):
     def __init__(self, pos=(0, win32api.GetSystemMetrics(1)-500), image='sprites/feeder.png', size=128, holdable=False, updatesPerSecond=60):
         super().__init__(pos=pos, image=image, size=size, holdable=holdable, updatesPerSecond=updatesPerSecond)
+        self.seedsToDispense = 0
+        self.seedGrid = supportClasses.grainGrid()
+        self.seedOverlay = QImage(win32api.GetSystemMetrics(0), win32api.GetSystemMetrics(1), QImage.Format_ARGB32)
+        self.seedOverlay.fill(QColor(0, 0, 0, 0))
+
+    def update(self):
+        self.seedGrid.update()
+        if self.seedsToDispense > 0:
+            self.seedsToDispense -= 1
+            self.seedGrid.addItem((100, 100, False, (200+random.randint(-50, 50), 150+random.randint(-50, 50), 50+random.randint(-50, 50)))) # x, y, trapped, colour
+    
+    def draw(self, painter):
+        if self.image != None:
+            painter.drawPixmap(self.x, self.y, self.image)
+
+        self.seedOverlay.fill(QColor(0, 0, 0, 0))
+        for x, y, flag, colour, *_ in self.seedGrid.list:
+            self.seedOverlay.setPixel(x, y, QColor(*colour).rgb())
+        
+        painter.drawImage(0, 0, self.seedOverlay)
+
+    def onClick(self):
+        self.seedsToDispense = 1000
 
 def main():
     app = QApplication(sys.argv)
