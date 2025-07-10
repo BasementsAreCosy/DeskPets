@@ -44,64 +44,44 @@ class Sprite:
 
 class grainGrid:
     def __init__(self):
-        self.map = {}
+        self.grains = {}
     
     def update(self):
-        print(len(self.map))
+        grainSize = 3
         for grain in self.list:
             dx, dy = 0, 0
-            if not grain[2]:
-                belowEmpty = not self.exists((grain[0], grain[1]+1)) and 0 <= grain[1]+1 <= win32api.GetSystemMetrics(1)-49
-                if belowEmpty:
-                    dy = 1
-                    
-                if random.random() <= 0.05:
-                    leftExists = self.exists((grain[0]-1, grain[1]))
-                    rightExists = self.exists((grain[0]+1, grain[1]))
-                    if leftExists or rightExists or belowEmpty:
-                        left = random.random() <= 0.5
-                        if left and not leftExists and 0 <= grain[0]-1 <= win32api.GetSystemMetrics(0):
-                            dx = -1
-                        elif not left and not rightExists and 0 <= grain[0]+1 <= win32api.GetSystemMetrics(0):
-                            dx = 1
+            belowEmpty = not self.exists((grain[0], grain[1]+grainSize)) and 0 <= grain[1]+grainSize <= win32api.GetSystemMetrics(1)-49
+            if belowEmpty:
+                dy = grainSize
+                
+            if random.random() <= 0.2:
+                leftExists = self.exists((grain[0]-grainSize, grain[1]+dy))
+                rightExists = self.exists((grain[0]+grainSize, grain[1]+dy))
+                if (leftExists or rightExists or belowEmpty) and grain[1] != win32api.GetSystemMetrics(1)-49:
+                    left = random.random() <= 0.5
+                    if left and not leftExists and 0 <= grain[0]-grainSize <= win32api.GetSystemMetrics(0):
+                        dx = -grainSize
+                    elif not left and not rightExists and 0 <= grain[0]+grainSize <= win32api.GetSystemMetrics(0):
+                        dx = grainSize
 
-                # todo: 
-                # Grid checks:
-                # # X #
-                #   #
-                # if side and down happen at once, bottom left/right gets overridden
-
-                '''
-                if dx != 0 or dy != 0:
-                    for x in range(-1, 2):
-                        for y in range(-1, 2):
-                            if self.exists((grain[0]+x, grain[1]+y)):
-                                self.map[(grain[0]+x, grain[1]+y)][2] = False
-                elif leftExists and rightExists and not belowEmpty:''' # todo: trapped bool to reduce lag
-
+            if dx != 0 or dy != 0:
                 self.removeItem(grain)
-                self.addItem((grain[0]+dx, grain[1]+dy, True, *grain[3:]))
-        self.resetFlags()
+                self.addItem((grain[0]+dx, grain[1]+dy, *grain[2:]))
     
     def addItem(self, item):
-        self.map[(item[0], item[1])] = item
+        self.grains[(item[0], item[1])] = list(item)
     
     def removeItem(self, item):
-        self.map.pop((item[0], item[1]))
-    
-    def resetFlags(self, flag=False):
-        for key in list(self.map.keys()):
-            item = self.map[key]
-            self.map[key] = (item[0], item[1], flag, *item[3:])
+        self.grains.pop((item[0], item[1]))
     
     def exists(self, coord):
-        return coord in self.map
+        return coord in self.grains
 
     @property
     def list(self):
-        return list(self.map.values())
+        return list(self.grains.values())
 
     @property
     def set(self):
-        return set(self.map.keys())
+        return set(self.grains.keys())
 

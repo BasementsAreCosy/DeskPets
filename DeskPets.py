@@ -57,7 +57,7 @@ class Window(QMainWindow):
     def initUI(self):
         self.setWindowFlags(
             Qt.FramelessWindowHint |
-            Qt.WindowStaysOnBottomHint | # todo: change to bottom after development
+            Qt.WindowStaysOnTopHint | # todo: change to bottom after development
             Qt.Tool
         )
         self.setAttribute(Qt.WA_TranslucentBackground)
@@ -152,9 +152,11 @@ class Window(QMainWindow):
                     break
 
 class Pet(supportClasses.Sprite):
-    def __init__(self, ID=None, pos=(0, 0), image=None, size=32, hunger=100, happiness=100, energy=100, updatesPerSecond=60, offlineTime=0):
+    def __init__(self, ID=None, pos=(0, 0), image=None, size=32, hunger=100, thirst=100, happiness=100, energy=100, updatesPerSecond=60, offlineTime=0):
+        startPos = random.choice([[-300, random.randint(0, win32api.GetSystemMetrics(1))], [random.randint(0, win32api.GetSystemMetrics(0)), -300]])
+        
         self.size = size
-        super().__init__(pos=self.newPos, image=image, size=size, updatesPerSecond=updatesPerSecond, holdable=True)
+        super().__init__(pos=startPos, image=image, size=size, updatesPerSecond=updatesPerSecond, holdable=True)
 
         if ID == None:
             self.ID = uuid.uuid4().hex
@@ -163,19 +165,20 @@ class Pet(supportClasses.Sprite):
 
         self.growthMultiplier = 1
         self.hungerMultiplier = 1
+        self.thirstMultiplier = 1
         self.happinessMultiplier = 1
         self.energyMultiplier = 1
 
         self.size = min(128, size+offlineTime*5*self.growthMultiplier/432000)
         self.hunger = max(0, hunger-0.01*self.hungerMultiplier*offlineTime*5)
+        self.thirst = max(0, thirst-0.01*self.thirstMultiplier*offlineTime*5)
         self.happiness = max(0, happiness-0.01*self.happinessMultiplier*offlineTime*5)
         self.energy = max(0, energy-0.01*self.energyMultiplier*offlineTime*5)
 
         self.targetPosition = None
         self.updatesSinceBoot = 0
-        self.attemptingSleep = False
-        self.sleeping = False
         self.lastDirection = (2, 2)
+        self.sleeping = False
 
         self.spriteName = 'bear'
         self.idleImage = utils.scaleImage(f'sprites/{self.spriteName}_1_2_i_0.png', self.size)
@@ -185,18 +188,27 @@ class Pet(supportClasses.Sprite):
     
     def update(self):
         self.updatesSinceBoot += 1
-        if self.happiness != 0:
+
+        ## \/ Reduce stats
+        if not self.needs['happiness']:
             self.size = min(128, self.size+self.growthMultiplier/432000)
 
         if not self.sleeping:
             self.energy = max(0, self.energy-0.01*self.energyMultiplier)
             self.hunger = max(0, self.hunger-0.01*self.hungerMultiplier)
             self.happiness = max(0, self.happiness-0.01*self.happinessMultiplier)
+        ## /\ Reduce stats
 
-        if self.energy == 0:
-            self.attemptingSleep = True
-            self.targetPosition = QPoint(self.bed.position)
+
+        ## \/ Meet needs
+        if self.needs['energy']:
+            offset = (self.bed.size-self.size)//2
+            sleepPosition = QPoint(self.bed.position.x()+offset, self.bed.position.y()+offset)
+            self.targetPosition = QPoint(sleepPosition)
             self.idleImage = utils.scaleImage(f'sprites/{self.spriteName}_1_1_s_0.png', self.size)
+        ## /\ Meet needs
+
+        ## \/ Wander
         elif not self.isMoving and not self.sleeping:
             if random.random() < 0.02:
                 self.setNewTarget()
@@ -206,20 +218,19 @@ class Pet(supportClasses.Sprite):
             dy = self.targetPosition.y() - self.position.y()
             distance = math.sqrt(dx**2 + dy**2)
 
-            if distance < 200 and not self.attemptingSleep:
-                self.targetPosition = None
-            elif distance < 20 and self.attemptingSleep:
+            if distance < 10:
                 self.position = self.targetPosition
                 self.targetPosition = None
             else:
                 self.position.setX(round(self.position.x() + utils.clamp(utils.invClamp(dx*0.05, 3), self.size/2)))
                 self.position.setY(round(self.position.y() + utils.clamp(utils.invClamp(dy*0.05, 3), self.size/2)))
+        ## /\ Wander
         
         if self.targetPosition == None:
             self.idleImage = utils.scaleImage(f'sprites/{self.spriteName}_{self.lastDirection[0]}_{self.lastDirection[1]}_i_0.png', self.size)
         
-        if self.attemptingSleep and self.position == self.bed.position:
-            self.attemptingSleep = False
+        offset = (self.bed.size-self.size)//2
+        if self.position == QPoint(self.bed.position.x()+offset, self.bed.position.y()+offset):
             self.sleeping = True
         
         if self.sleeping:
@@ -306,11 +317,20 @@ class Pet(supportClasses.Sprite):
         for child in self.children:
             if type(child) == Bed:
                 return child
+    
+    @property
+    def needs(self): # energy, hunger, thirst, happiness
+        return {
+            'energy': True if self.energy == 0 else False,
+            'hunger': True if self.hunger == 0 else False,
+            'thirst': True if self.thirst == 0 else False,
+            'happiness': True if self.happiness == 0 else False
+        }
 
 
 class Bed(supportClasses.Sprite):
     def __init__(self):
-        super().__init__(pos=(random.randint(0, win32api.GetSystemMetrics(0)-128), win32api.GetSystemMetrics(1)-144), image='sprites/bed.png', size=128, holdable=True, updatesPerSecond=60)
+        super().__init__(pos=(random.randint(0, win32api.GetSystemMetrics(0)-128), -300), image='sprites/bed.png', size=128, holdable=True, updatesPerSecond=60)
         self.speedByGravity = 0
 
     def update(self):
@@ -350,27 +370,24 @@ class Feeder(supportClasses.Sprite):
         super().__init__(pos=pos, image=image, size=size, holdable=holdable, updatesPerSecond=updatesPerSecond)
         self.seedsToDispense = 0
         self.seedGrid = supportClasses.grainGrid()
-        self.seedOverlay = QImage(win32api.GetSystemMetrics(0), win32api.GetSystemMetrics(1), QImage.Format_ARGB32)
-        self.seedOverlay.fill(QColor(0, 0, 0, 0))
 
     def update(self):
         self.seedGrid.update()
         if self.seedsToDispense > 0:
             self.seedsToDispense -= 1
-            self.seedGrid.addItem((100, 100, False, (200+random.randint(-50, 50), 150+random.randint(-50, 50), 50+random.randint(-50, 50)))) # x, y, trapped, colour
+            self.seedGrid.addItem((40, win32api.GetSystemMetrics(1)-385, (200+random.randint(-50, 50), 150+random.randint(-50, 50), 50+random.randint(-50, 50))))
     
     def draw(self, painter):
         if self.image != None:
             painter.drawPixmap(self.x, self.y, self.image)
 
-        self.seedOverlay.fill(QColor(0, 0, 0, 0))
-        for x, y, flag, colour, *_ in self.seedGrid.list:
-            self.seedOverlay.setPixel(x, y, QColor(*colour).rgb())
-        
-        painter.drawImage(0, 0, self.seedOverlay)
+        painter.setPen(Qt.NoPen)
+        for x, y, colour in self.seedGrid.list:
+            painter.setBrush(QColor(*colour))
+            painter.drawRect(x, y, 3, 3)
 
     def onClick(self):
-        self.seedsToDispense = 1000
+        self.seedsToDispense = 300
 
 def main():
     app = QApplication(sys.argv)
