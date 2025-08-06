@@ -33,12 +33,12 @@ class Window(QMainWindow):
 
         self.sprites = []
         for key in spriteData.keys():
-            self.sprites.append(Pet(ID=key, size=spriteData[key]['size'], hunger=spriteData[key]['hunger'], happiness=spriteData[key]['happiness'], energy=spriteData[key]['energy'], offlineTime=time.time()-spriteData[key]['lastSave']))
+            self.sprites.append(Pet(window=self, ID=key, size=spriteData[key]['size'], hunger=spriteData[key]['hunger'], happiness=spriteData[key]['happiness'], energy=spriteData[key]['energy'], offlineTime=time.time()-spriteData[key]['lastSave']))
         
         if self.sprites == []:
-            self.sprites.append(Pet())
+            self.sprites.append(Pet(window=self))
 
-        self.sprites.append(Feeder())
+        self.sprites.append(Feeder(window=self))
 
         self.mousePressed = False
         self.heldSprite = None
@@ -152,11 +152,11 @@ class Window(QMainWindow):
                     break
 
 class Pet(supportClasses.Sprite):
-    def __init__(self, ID=None, pos=(0, 0), image=None, size=32, hunger=100, thirst=100, happiness=100, energy=100, updatesPerSecond=60, offlineTime=0):
+    def __init__(self, window=None, ID=None, pos=(0, 0), image=None, size=32, hunger=100, thirst=100, happiness=100, energy=100, updatesPerSecond=60, offlineTime=0):
         startPos = random.choice([[-300, random.randint(0, win32api.GetSystemMetrics(1))], [random.randint(0, win32api.GetSystemMetrics(0)), -300]])
         
         self.size = size
-        super().__init__(pos=startPos, image=image, size=size, updatesPerSecond=updatesPerSecond, holdable=True)
+        super().__init__(window=window, pos=startPos, image=image, size=size, updatesPerSecond=updatesPerSecond, holdable=True)
 
         if ID == None:
             self.ID = uuid.uuid4().hex
@@ -201,15 +201,18 @@ class Pet(supportClasses.Sprite):
 
 
         ## \/ Meet needs
-        if self.needs['energy']:
-            offset = (self.bed.size-self.size)//2
-            sleepPosition = QPoint(self.bed.position.x()+offset, self.bed.position.y()+offset)
-            self.targetPosition = QPoint(sleepPosition)
-            self.idleImage = utils.scaleImage(f'sprites/{self.spriteName}_1_1_s_0.png', self.size)
+        if not self.isMoving and not self.sleeping:
+            if self.needs['energy']:
+                offset = (self.bed.size-self.size)//2
+                sleepPosition = QPoint(self.bed.position.x()+offset, self.bed.position.y()+offset)
+                self.targetPosition = QPoint(sleepPosition)
+                self.idleImage = utils.scaleImage(f'sprites/{self.spriteName}_1_1_s_0.png', self.size)
+            elif self.needs['hunger'] and self.feeder and self.feeder.seedGrid.list != []:
+                self.targetPosition = QPoint(*random.choice(self.feeder.seedGrid.list)[:2])
         ## /\ Meet needs
 
         ## \/ Wander
-        elif not self.isMoving and not self.sleeping:
+        if not self.isMoving and not self.sleeping:
             if random.random() < 0.02:
                 self.setNewTarget()
         if self.targetPosition != None:
@@ -327,10 +330,18 @@ class Pet(supportClasses.Sprite):
             'happiness': True if self.happiness == 0 else False
         }
 
+    @property
+    def feeder(self):
+        feed = None
+        for sprite in self.window.sprites:
+            if type(sprite) == Feeder:
+                feed = sprite
+                return feed
+
 
 class Bed(supportClasses.Sprite):
-    def __init__(self):
-        super().__init__(pos=(random.randint(0, win32api.GetSystemMetrics(0)-128), -300), image='sprites/bed.png', size=128, holdable=True, updatesPerSecond=60)
+    def __init__(self, window=None):
+        super().__init__(window=window, pos=(random.randint(0, win32api.GetSystemMetrics(0)-128), -300), image='sprites/bed.png', size=128, holdable=True, updatesPerSecond=60)
         self.speedByGravity = 0
 
     def update(self):
@@ -366,8 +377,8 @@ class Particle(supportClasses.Sprite):
         return self.position.y() <= -32
 
 class Feeder(supportClasses.Sprite):
-    def __init__(self, pos=(0, win32api.GetSystemMetrics(1)-500), image='sprites/feeder.png', size=128, holdable=False, updatesPerSecond=60):
-        super().__init__(pos=pos, image=image, size=size, holdable=holdable, updatesPerSecond=updatesPerSecond)
+    def __init__(self, window=None, pos=(0, win32api.GetSystemMetrics(1)-500), image='sprites/feeder.png', size=128, holdable=False, updatesPerSecond=60):
+        super().__init__(window=window, pos=pos, image=image, size=size, holdable=holdable, updatesPerSecond=updatesPerSecond)
         self.seedsToDispense = 0
         self.seedGrid = supportClasses.grainGrid()
 

@@ -4,7 +4,8 @@ import win32api
 import random
 
 class Sprite:
-    def __init__(self, pos=(0, 0), image=None, size=32, holdable=False, updatesPerSecond=60):
+    def __init__(self, window=None, pos=(0, 0), image=None, size=32, holdable=False, updatesPerSecond=60):
+        self.window = window
         self.held = False
         self.holdable = holdable
         self.updatesPerSecond = updatesPerSecond
